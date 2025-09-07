@@ -19,6 +19,12 @@ def browser_ctx(headful: bool = False) -> Iterator[tuple[Browser, Page]]:
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
         ))
         page = context.new_page()
+        # 提高默认超时，缓解偶发加载变慢导致的超时
+        try:
+            page.set_default_navigation_timeout(60000)  # 60s 导航超时
+            page.set_default_timeout(15000)             # 15s 通用超时
+        except Exception:
+            pass
         try:
             yield browser, page
         finally:
@@ -150,11 +156,19 @@ def _debug_dump(page: Page, s: Settings, name: str) -> None:
 def _form_fill_search(page: Page, s: Settings) -> None:
     # Fill pickup/return cities and stores, pickup/return dates and times, then submit
     print("[form] open firstStep page…")
-    page.goto(EHI_BASE_URL, wait_until="domcontentloaded")
+    # 更宽松的导航等待与超时，降低网络波动导致的超时
+    try:
+        page.goto(EHI_BASE_URL, wait_until="domcontentloaded", timeout=60000)
+    except Exception:
+        # 兜底再等到 networkidle，但不抛出，让上层重试机制接管
+        try:
+            page.goto(EHI_BASE_URL, wait_until="load", timeout=60000)
+        except Exception:
+            pass
     # 等待关键输入框渲染完成
     try:
-        page.wait_for_selector("#pickupcity", timeout=15000, state="visible")
-        page.wait_for_selector("#returncity", timeout=15000, state="visible")
+        page.wait_for_selector("#pickupcity", timeout=30000, state="visible")
+        page.wait_for_selector("#returncity", timeout=30000, state="visible")
     except Exception:
         page.wait_for_load_state("networkidle")
     _debug_dump(page, s, "01_loaded_firstStep")
