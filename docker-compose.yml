@@ -1,0 +1,17 @@
+version: "3.8"
+services:
+  ehi-monitor:
+    build: .
+    image: ehi-price-monitor:latest
+    container_name: ehi-price-monitor
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./debug:/app/debug
+    command: ["python", "run.py"]
+
